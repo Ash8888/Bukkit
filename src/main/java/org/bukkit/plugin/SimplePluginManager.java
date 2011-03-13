@@ -9,13 +9,18 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import org.bukkit.Server;
 import java.util.regex.Pattern;
+
 import org.bukkit.event.Event;
 import org.bukkit.event.Event.Priority;
 import org.bukkit.event.Listener;
@@ -31,9 +36,18 @@ public final class SimplePluginManager implements PluginManager {
     private final List<Plugin> plugins = new ArrayList<Plugin>();
     private final Map<String, Plugin> lookupNames = new HashMap<String, Plugin>();
     private final Map<String, RootPermissionDescription> permissions = new HashMap<String, RootPermissionDescription>();
-    private final Map<Event.Type, PriorityQueue<RegisteredListener>> listeners = 
-            new EnumMap<Event.Type, PriorityQueue<RegisteredListener>>(Event.Type.class);
+    private final Map<Event.Type, SortedSet<RegisteredListener>> listeners = new EnumMap<Event.Type, SortedSet<RegisteredListener>>(Event.Type.class);
+    private final Comparator<RegisteredListener> comparer = new Comparator<RegisteredListener>() {
+        public int compare(RegisteredListener i, RegisteredListener j) {
+            int result = i.getPriority().compareTo(j.getPriority());
 
+            if ((result == 0) && (i != j)) {
+                result = 1;
+            }
+
+            return result;
+        }
+    };
     public SimplePluginManager(Server instance) {
         server = instance;
     }
@@ -44,7 +58,7 @@ public final class SimplePluginManager implements PluginManager {
      * @param loader Class name of the PluginLoader to register
      * @throws IllegalArgumentException Thrown when the given Class is not a valid PluginLoader
      */
-    public void RegisterInterface(Class<? extends PluginLoader> loader) throws IllegalArgumentException {
+    public void registerInterface(Class<? extends PluginLoader> loader) throws IllegalArgumentException {
         PluginLoader instance;
 
         if (PluginLoader.class.isAssignableFrom(loader)) {
@@ -53,7 +67,8 @@ public final class SimplePluginManager implements PluginManager {
                 constructor = loader.getConstructor(Server.class);
                 instance = constructor.newInstance(server);
             } catch (NoSuchMethodException ex) {
-                throw new IllegalArgumentException(String.format("Class %s does not have a public %s(Server) constructor", loader.getName()), ex);
+                String className = loader.getName();
+                throw new IllegalArgumentException(String.format("Class %s does not have a public %s(Server) constructor", className,className), ex);
             } catch (Exception ex) {
                 throw new IllegalArgumentException(String.format("Unexpected exception %s while attempting to construct a new instance of %s", ex.getClass().getName(), loader.getName()), ex);
             }
@@ -78,19 +93,45 @@ public final class SimplePluginManager implements PluginManager {
         List<Plugin> result = new ArrayList<Plugin>();
         File[] files = directory.listFiles();
 
-        for (File file : files) {
-            Plugin plugin = null;
+        boolean allFailed = false;
+        boolean finalPass = false;
 
-            try {
-                plugin = loadPlugin(file);
-            } catch (InvalidPluginException ex) {
-                Logger.getLogger(SimplePluginManager.class.getName()).log(Level.SEVERE, "Could not load " + file.getPath() + " in " + directory.getPath() + ": " + ex.getMessage(), ex);
-            } catch (InvalidDescriptionException ex) {
-                Logger.getLogger(SimplePluginManager.class.getName()).log(Level.SEVERE, "Could not load " + file.getPath() + " in " + directory.getPath() + ": " + ex.getMessage(), ex);
+        LinkedList<File> filesList = new LinkedList(Arrays.asList(files));
+
+        while(!allFailed || finalPass) {
+            allFailed = true;
+            Iterator<File> itr = filesList.iterator();
+            while(itr.hasNext()) {
+                File file = itr.next();
+                Plugin plugin = null;
+
+                try {
+                    plugin = loadPlugin(file);
+                    itr.remove();
+                } catch (UnknownDependencyException ex) {
+                    if(finalPass) {
+                        server.getLogger().log(Level.SEVERE, "Could not load " + file.getPath() + " in " + directory.getPath() + ": " + ex.getMessage(), ex);
+                        itr.remove();
+                    } else {
+                        plugin = null;
+                    }
+                } catch (InvalidPluginException ex) {
+                    server.getLogger().log(Level.SEVERE, "Could not load " + file.getPath() + " in " + directory.getPath() + ": " + ex.getMessage(), ex);
+                    itr.remove();
+                } catch (InvalidDescriptionException ex) {
+                    server.getLogger().log(Level.SEVERE, "Could not load " + file.getPath() + " in " + directory.getPath() + ": " + ex.getMessage(), ex);
+                    itr.remove();
+                }
+
+                if (plugin != null) {
+                    result.add(plugin);
+                    allFailed = false;
+                }
             }
-
-            if (plugin != null) {
-                result.add(plugin);
+            if(finalPass) {
+                break;
+            } else if(allFailed) {
+                finalPass = true;
             }
         }
 
@@ -107,7 +148,7 @@ public final class SimplePluginManager implements PluginManager {
      * @throws InvalidPluginException Thrown when the specified file is not a valid plugin
      * @throws InvalidDescriptionException Thrown when the specified file contains an invalid description
      */
-    public Plugin loadPlugin(File file) throws InvalidPluginException, InvalidDescriptionException {
+    public Plugin loadPlugin(File file) throws InvalidPluginException, InvalidDescriptionException, UnknownDependencyException {
         Set<Pattern> filters = fileAssociations.keySet();
         Plugin result = null;
 
@@ -241,15 +282,14 @@ public final class SimplePluginManager implements PluginManager {
      * @param event Event details
      */
     public void callEvent(Event event) {
-        PriorityQueue<RegisteredListener> eventListeners = listeners.get(event.getType());
+        SortedSet<RegisteredListener> eventListeners = listeners.get(event.getType());
 
         if (eventListeners != null) {
             for (RegisteredListener registration : eventListeners) {
-                // NOTE: no need to check isEnabled as all disabled plugins have their listeners disabled
                 try {
                     registration.callEvent( event );
                 } catch (Throwable ex) {
-                    Logger.getLogger(SimplePluginManager.class.getName()).log(Level.SEVERE, "Could not pass event " + event.getType() + " to " + registration.getPlugin().getDescription().getName(), ex);
+                    server.getLogger().log(Level.SEVERE, "Could not pass event " + event.getType() + " to " + registration.getPlugin().getDescription().getName(), ex);
                 }
             }
         }
@@ -264,7 +304,10 @@ public final class SimplePluginManager implements PluginManager {
      * @param plugin Plugin to register
      */
     public void registerEvent(Event.Type type, Listener listener, Priority priority, Plugin plugin) {
-        getEventListeners( type ).offer(new RegisteredListener(listener, priority, plugin, type));
+        if (!plugin.isEnabled()) {
+            server.getLogger().warning("Plugin '" + plugin.getDescription().getName() + "' (ver " + plugin.getDescription().getVersion() + ") is registering events before it is enabled. It may be misbehaving and the author needs to fix this.");
+        }
+        getEventListeners( type ).add(new RegisteredListener(listener, priority, plugin, type));
     }
 
     /**
@@ -277,30 +320,23 @@ public final class SimplePluginManager implements PluginManager {
      * @param plugin Plugin to register
      */
     public void registerEvent(Event.Type type, Listener listener, EventExecutor executor, Priority priority, Plugin plugin) {
-        getEventListeners( type ).offer(new RegisteredListener(listener, executor, priority, plugin));
+        getEventListeners( type ).add(new RegisteredListener(listener, executor, priority, plugin));
     }
 
     /**
-     * Returns a PriorityQueue of RegisteredListener for the specified event type creating a new queue if needed
+     * Returns a SortedSet of RegisteredListener for the specified event type creating a new queue if needed
      *
      * @param type EventType to lookup
-     * @return PriorityQueue<RegisteredListener> the looked up or create queue matching the requested type
+     * @return SortedSet<RegisteredListener> the looked up or create queue matching the requested type
      */
-    private PriorityQueue<RegisteredListener> getEventListeners( Event.Type type )
-    {
-        PriorityQueue<RegisteredListener> eventListeners = listeners.get(type);
+    private SortedSet<RegisteredListener> getEventListeners(Event.Type type) {
+        SortedSet<RegisteredListener> eventListeners = listeners.get(type);
 
         if (eventListeners != null) {
             return eventListeners;
         }
 
-        eventListeners = new PriorityQueue<RegisteredListener>(
-            11, new Comparator<RegisteredListener>() {
-                public int compare(RegisteredListener i, RegisteredListener j) {
-                    return i.getPriority().compareTo(j.getPriority());
-                }
-            }
-        );
+        eventListeners = new TreeSet<RegisteredListener>(comparer);
         listeners.put(type, eventListeners);
         return eventListeners;
     }

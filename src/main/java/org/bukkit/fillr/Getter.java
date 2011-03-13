@@ -3,11 +3,12 @@ package org.bukkit.fillr;
 import org.bukkit.entity.Player;
 import java.io.File;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.bukkit.*;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.InvalidDescriptionException;
 import org.bukkit.plugin.InvalidPluginException;
+import org.bukkit.plugin.UnknownDependencyException;
 
 public class Getter {
     private Server server;
@@ -17,20 +18,20 @@ public class Getter {
         this.server = server;
     }
 
-    public void get(String string, Player player) {
+    public void get(String string, CommandSender sender) {
         FillReader reader = new FillReader(string);
-        player.sendMessage("Downloading " + reader.getName() + " "
+        sender.sendMessage("Downloading " + reader.getName() + " "
                 + reader.getCurrVersion());
         try {
             Downloader.downloadJar(reader.getFile());
             if (reader.getNotes() != null && !reader.getNotes().equals("")) {
-                player.sendMessage("Notes: " + reader.getNotes());
+                sender.sendMessage("Notes: " + reader.getNotes());
             }
-            player.sendMessage("Finished Download!");
+            sender.sendMessage("Finished Download!");
             enablePlugin(reader);
-            player.sendMessage("Loading " + reader.getName());
+            sender.sendMessage("Loading " + reader.getName());
         } catch (Exception ex) {
-            Logger.getLogger(Getter.class.getName()).log(Level.SEVERE, null, ex);
+            server.getLogger().log(Level.SEVERE, null, ex);
         }
     }
 
@@ -40,10 +41,12 @@ public class Getter {
         File plugin = new File(DIRECTORY, name + ".jar");
         try {
             server.getPluginManager().loadPlugin(plugin);
+        } catch (UnknownDependencyException ex) {
+            server.getLogger().log(Level.SEVERE, null, ex);
         } catch (InvalidPluginException ex) {
-            Logger.getLogger(Getter.class.getName()).log(Level.SEVERE, null, ex);
+            server.getLogger().log(Level.SEVERE, null, ex);
         } catch (InvalidDescriptionException ex) {
-            Logger.getLogger(Getter.class.getName()).log(Level.SEVERE, null, ex);
+            server.getLogger().log(Level.SEVERE, null, ex);
         }
     }
 }

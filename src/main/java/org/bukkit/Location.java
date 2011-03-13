@@ -15,10 +15,28 @@ public class Location implements Cloneable {
     private float pitch;
     private float yaw;
 
+    /**
+     * Constructs a new Location with the given coordinates
+     *
+     * @param world The world in which this location resides
+     * @param x The x-coordinate of this new location
+     * @param y The y-coordinate of this new location
+     * @param z The z-coordinate of this new location
+     */
     public Location(final World world, final double x, final double y, final double z) {
         this(world, x, y, z, 0, 0);
     }
 
+    /**
+     * Constructs a new Location with the given coordinates and direction
+     *
+     * @param world The world in which this location resides
+     * @param x The x-coordinate of this new location
+     * @param y The y-coordinate of this new location
+     * @param z The z-coordinate of this new location
+     * @param yaw The absolute rotation on the x-plane, in degrees
+     * @param pitch The absolute rotation on the y-plane, in degrees
+     */
     public Location(final World world, final double x, final double y, final double z, final float yaw, final float pitch) {
         this.world = world;
         this.x = x;
@@ -80,7 +98,7 @@ public class Location implements Cloneable {
      * @return block X
      */
     public int getBlockX() {
-        return (int)Math.floor(x);
+        return locToBlock(x);
     }
 
     /**
@@ -108,7 +126,7 @@ public class Location implements Cloneable {
      * @return block y
      */
     public int getBlockY() {
-        return (int)Math.floor(y);
+        return locToBlock(y);
     }
 
     /**
@@ -136,7 +154,7 @@ public class Location implements Cloneable {
      * @return block z
      */
     public int getBlockZ() {
-        return (int)Math.floor(z);
+        return locToBlock(z);
     }
 
     /**
@@ -242,12 +260,39 @@ public class Location implements Cloneable {
         return "Location{" + "world=" + world + "x=" + x + "y=" + y + "z=" + z + "pitch=" + pitch + "yaw=" + yaw + '}';
     }
 
+    /**
+     * Constructs a new {@link Vector} based on this Location
+     *
+     * @return New Vector containing the coordinates represented by this Location
+     */
     public Vector toVector() {
         return new Vector(x, y, z);
     }
 
     @Override
     public Location clone() {
-        return new Location(world, x, y, z, yaw, pitch);
+        try {
+            Location l = (Location)super.clone();
+            l.world = world;
+            l.x = x;
+            l.y = y;
+            l.z = z;
+            l.yaw = yaw;
+            l.pitch = pitch;
+            return l;
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * Safely converts a double (location coordinate) to an int (block coordinate)
+     *
+     * @param loc Precise coordinate
+     * @return Block coordinate
+     */
+    public static int locToBlock(double loc) {
+        return (int)Math.floor(loc);
     }
 }

@@ -2,7 +2,9 @@
 package org.bukkit.entity;
 
 import org.bukkit.Location;
+import org.bukkit.Server;
 import org.bukkit.World;
+import org.bukkit.util.Vector;
 
 /**
  * Represents a base entity in the world
@@ -14,6 +16,38 @@ public interface Entity {
      * @return Location containing the position of this entity
      */
     public Location getLocation();
+
+    /**
+     * Gets this entity's current momentum
+     *
+     * @return Current travelling momentum of this entity
+     * @deprecated See {@link #getVelocity()}
+     */
+    @Deprecated
+    public Vector getMomentum();
+
+    /**
+     * Sets this entity's momentum
+     *
+     * @param vector New momentum to travel with
+     * @deprecated See {@link #setVelocity(org.bukkit.util.Vector)}
+     */
+    @Deprecated
+    public void setMomentum(Vector vector);
+
+    /**
+     * Sets this entity's velocity
+     *
+     * @param velocity New velocity to travel with
+     */
+    public void setVelocity(Vector velocity);
+
+    /**
+     * Gets this entity's current velocity
+     *
+     * @return Current travelling velocity of this entity
+     */
+    public Vector getVelocity();
 
     /**
      * Gets the current world this entity resides in
@@ -63,4 +97,16 @@ public interface Entity {
      * @param ticks
      */
     public void setFireTicks(int ticks);
+    
+    /**
+     * Mark the entity's removal.
+     */
+    public void remove();
+
+    /**
+     * Gets the {@link Server} that contains this Entity
+     *
+     * @return Server instance running this Entity
+     */
+    public Server getServer();
 }

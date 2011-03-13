@@ -1,9 +1,11 @@
 package org.bukkit.event;
 
+import java.io.Serializable;
+
 /**
  * Represents an event
  */
-public abstract class Event {
+public abstract class Event implements Serializable {
     private final Type type;
     private final String name;
 
@@ -172,11 +174,11 @@ public abstract class Event {
         PLAYER_CHAT (Category.PLAYER),
 
         /**
-         * Called when a player attempts to use a command
+         * Called when a player early in the command handling process
          *
          * @see org.bukkit.event.player.PlayerChatEvent
          */
-        PLAYER_COMMAND (Category.PLAYER),
+        PLAYER_COMMAND_PREPROCESS (Category.PLAYER),
 
         /**
          * Called when a player leaves a server

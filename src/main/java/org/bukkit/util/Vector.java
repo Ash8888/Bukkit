@@ -522,20 +522,21 @@ public class Vector implements Cloneable {
 
         return Math.abs(x - other.x) < epsilon
                 && Math.abs(y - other.y) < epsilon
-                && Math.abs(z - other.z) < epsilon;
+                && Math.abs(z - other.z) < epsilon && (this.getClass().equals(obj.getClass()));
     }
 
     /**
-     * Returns a hash code for this vector. Due to floating point errors, this
-     * hash code should not be used in hash tables of any sort.
+     * Returns a hash code for this vector
      *
      * @return hash code
      */
     @Override
     public int hashCode() {
-        return ((int)Double.doubleToLongBits(x) >> 13) ^
-                ((int)Double.doubleToLongBits(y) >> 7) ^
-                (int)Double.doubleToLongBits(z);
+        int hash = 7;
+        hash = 79 * hash + (int) (Double.doubleToLongBits(this.x) ^ (Double.doubleToLongBits(this.x) >>> 32));
+        hash = 79 * hash + (int) (Double.doubleToLongBits(this.y) ^ (Double.doubleToLongBits(this.y) >>> 32));
+        hash = 79 * hash + (int) (Double.doubleToLongBits(this.z) ^ (Double.doubleToLongBits(this.z) >>> 32));
+        return hash;
     }
 
     /**
@@ -545,7 +546,16 @@ public class Vector implements Cloneable {
      */
     @Override
     public Vector clone() {
-        return new Vector(x, y, z);
+        try {
+            Vector v = (Vector)super.clone();
+            v.x = x;
+            v.y = y;
+            v.z = z;
+            return v;            
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     /**

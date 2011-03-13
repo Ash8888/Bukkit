@@ -9,6 +9,9 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.ArrayList;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.Pattern;
@@ -25,7 +28,6 @@ import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldEvent;
 import org.bukkit.event.world.WorldListener;
-import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.*;
 
 /**
@@ -37,12 +39,13 @@ public final class JavaPluginLoader implements PluginLoader {
             Pattern.compile("\\.jar$"),
     };
     private final Map<String, Class<?>> classes = new HashMap<String, Class<?>>();
+    private final Map<String, File> files = new HashMap<String, File>();
 
     public JavaPluginLoader(Server instance) {
         server = instance;
     }
 
-    public Plugin loadPlugin(File file) throws InvalidPluginException, InvalidDescriptionException {
+    public Plugin loadPlugin(File file) throws InvalidPluginException, InvalidDescriptionException, UnknownDependencyException {
         JavaPlugin result = null;
         PluginDescriptionFile description = null;
 
@@ -68,16 +71,49 @@ public final class JavaPluginLoader implements PluginLoader {
 
         File dataFolder = getDataFolder(file);
 
+        ArrayList<String> depend;
         try {
-            ClassLoader loader = new PluginClassLoader(this, new URL[]{file.toURI().toURL()}, getClass().getClassLoader());
+            depend = (ArrayList)description.getDepend();
+            if(depend == null) {
+                depend = new ArrayList<String>();
+            }
+        } catch (ClassCastException ex) {
+             throw new InvalidPluginException(ex);
+        }
+
+        ArrayList<File> dependFiles = new ArrayList<File>();
+
+        for(String pluginName : depend) {
+            if(files == null) {
+                throw new UnknownDependencyException(pluginName);
+            }
+            File current = files.get(pluginName);
+            if(current == null) {
+                throw new UnknownDependencyException(pluginName);
+            }
+            dependFiles.add(current);
+        }
+
+        try {
+            URL[] urls = new URL[dependFiles.size() + 1];
+            urls[0] = file.toURI().toURL();
+            int cnt = 1;
+            for(File f : dependFiles) {
+                urls[cnt++] = f.toURI().toURL();
+            }
+            ClassLoader loader = new PluginClassLoader(this, urls, getClass().getClassLoader());
             Class<?> jarClass = Class.forName(description.getMain(), true, loader);
             Class<? extends JavaPlugin> plugin = jarClass.asSubclass(JavaPlugin.class);
-            Constructor<? extends JavaPlugin> constructor = plugin.getConstructor(PluginLoader.class, Server.class, PluginDescriptionFile.class, File.class, File.class, ClassLoader.class);
 
-            result = constructor.newInstance(this, server, description, dataFolder, file, loader);
+            Constructor<? extends JavaPlugin> constructor = plugin.getConstructor();
+            result = constructor.newInstance();
+            
+            result.initialize(this, server, description, dataFolder, file, loader);
         } catch (Throwable ex) {
             throw new InvalidPluginException(ex);
         }
+
+        files.put(description.getName(), file);
 
         return (Plugin)result;
     }
@@ -111,7 +147,9 @@ public final class JavaPluginLoader implements PluginLoader {
     }
 
     public void setClass(final String name, final Class<?> clazz) {
-        classes.put(name, clazz);
+        if(!classes.containsKey(name)) {
+            classes.put(name, clazz);
+        }
     }
 
     public EventExecutor createExecutor( Event.Type type, Listener listener ) {
@@ -139,9 +177,9 @@ public final class JavaPluginLoader implements PluginLoader {
                     ((PlayerListener)listener).onPlayerKick( (PlayerKickEvent)event );
                 }
             };
-        case PLAYER_COMMAND:
+        case PLAYER_COMMAND_PREPROCESS:
             return new EventExecutor() { public void execute( Listener listener, Event event ) {
-                    ((PlayerListener)listener).onPlayerCommand( (PlayerChatEvent)event );
+                    ((PlayerListener)listener).onPlayerCommandPreprocess( (PlayerChatEvent)event );
                 }
             };
         case PLAYER_CHAT:
@@ -410,9 +448,8 @@ public final class JavaPluginLoader implements PluginLoader {
         if (!plugin.isEnabled()) {
             JavaPlugin jPlugin = (JavaPlugin)plugin;
 
-            server.getPluginManager().callEvent(new PluginEvent(Event.Type.PLUGIN_ENABLE, plugin));
-
             jPlugin.setEnabled(true);
+            server.getPluginManager().callEvent(new PluginEvent(Event.Type.PLUGIN_ENABLE, plugin));
         }
     }
 
@@ -425,9 +462,11 @@ public final class JavaPluginLoader implements PluginLoader {
             JavaPlugin jPlugin = (JavaPlugin)plugin;
             ClassLoader cloader = jPlugin.getClassLoader();
 
+            jPlugin.setEnabled(false);
+
             server.getPluginManager().callEvent(new PluginEvent(Event.Type.PLUGIN_DISABLE, plugin));
 
-            jPlugin.setEnabled(false);
+            files.remove(jPlugin.getDescription().getName());
 
             if (cloader instanceof PluginClassLoader) {
                 PluginClassLoader loader = (PluginClassLoader)cloader;

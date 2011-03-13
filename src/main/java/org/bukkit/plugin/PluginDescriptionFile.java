@@ -6,6 +6,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import org.bukkit.permission.RootPermissionDescription;
 import org.bukkit.permission.PermissionDescriptionException;
@@ -20,6 +21,7 @@ public final class PluginDescriptionFile {
     private static final Yaml yaml = new Yaml(new SafeConstructor());
     private String name = null;
     private String main = null;
+    private ArrayList<String> depend = null;
     private String version = null;
     private Object commands = null;
     private String description = null;
@@ -102,6 +104,10 @@ public final class PluginDescriptionFile {
         return commands;
     }
 
+    public Object getDepend() {
+        return depend;
+    }
+
     /**
      * Gets the description of this plugin
      *
@@ -153,6 +159,14 @@ public final class PluginDescriptionFile {
                 commands = map.get("commands");
             } catch (ClassCastException ex) {
                 throw new InvalidDescriptionException(ex, "commands are of wrong type");
+            }
+        }
+
+        if (map.containsKey("depend")) {
+            try {
+                depend = (ArrayList<String>)map.get("depend");
+            } catch (ClassCastException ex) {
+                throw new InvalidDescriptionException(ex, "depend is of wrong type");
             }
         }
 
@@ -211,6 +225,7 @@ public final class PluginDescriptionFile {
         map.put("version", version);
 
         if (commands != null) map.put("command", commands);
+        if (depend != null) map.put("depend", depend);
         if (website != null) map.put("website", website);
         if (description != null) map.put("description", description);
 
