@@ -6,7 +6,6 @@ import java.io.Reader;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import org.bukkit.permission.RootPermissionDescription;
 import org.bukkit.permission.PermissionDescriptionException;
