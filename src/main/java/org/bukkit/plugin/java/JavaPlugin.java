@@ -156,9 +156,6 @@ public abstract class JavaPlugin implements Plugin {
             this.config.load();
 
             ServerConfig config = new ServerConfig();
-
-            System.out.println(file.getPath());
-            System.out.println(config.getProperty("subClassManager.preferContextClassloader", "true") + " = subClassManager.preferContextClassloader");
             
             config.setDefaultServer(false);
             config.setRegister(false);
