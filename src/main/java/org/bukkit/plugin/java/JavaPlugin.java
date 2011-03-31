@@ -1,7 +1,13 @@
 
 package org.bukkit.plugin.java;
 
+import com.avaje.ebean.EbeanServer;
+import com.avaje.ebean.EbeanServerFactory;
+import com.avaje.ebean.config.DataSourceConfig;
+import com.avaje.ebean.config.ServerConfig;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import org.bukkit.Server;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -25,6 +31,7 @@ public abstract class JavaPlugin implements Plugin {
     private ClassLoader classLoader = null;
     private Configuration config = null;
     private boolean naggable = true;
+    private EbeanServer ebean = null;
 
     public JavaPlugin() {
     }
@@ -147,7 +154,42 @@ public abstract class JavaPlugin implements Plugin {
             this.classLoader = classLoader;
             this.config = new Configuration(new File(dataFolder, "config.yml"));
             this.config.load();
+
+            ServerConfig config = new ServerConfig();
+
+            System.out.println(file.getPath());
+            System.out.println(config.getProperty("subClassManager.preferContextClassloader", "true") + " = subClassManager.preferContextClassloader");
+            
+            config.setDefaultServer(false);
+            config.setRegister(false);
+            config.setDdlGenerate(true);
+            config.setDdlRun(true);
+            config.setClasses(getDatabaseClasses());
+            config.setName(description.getName());
+            server.configureDbConfig(config);
+
+            DataSourceConfig ds = config.getDataSourceConfig();
+            ds.setUrl(replaceDatabaseString(ds.getUrl()));
+            getDataFolder().mkdirs();
+
+            ClassLoader previous = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(classLoader);
+            ebean = EbeanServerFactory.create(config);
+            Thread.currentThread().setContextClassLoader(previous);
         }
+    }
+
+    /**
+     * Provides a list of all classes that should be persisted in the database
+     *
+     * @return List of Classes that are Ebeans
+     */
+    public List<Class<?>> getDatabaseClasses() {
+        return new ArrayList<Class<?>>();
+    }
+
+    private String replaceDatabaseString(String input) {
+        return input.replaceAll("\\{DIR\\}", getDataFolder().getPath().replaceAll("\\\\", "/"));
     }
 
     /**
@@ -199,4 +241,7 @@ public abstract class JavaPlugin implements Plugin {
         this.naggable = canNag;;
     }
 
+    public EbeanServer getDatabase() {
+        return ebean;
+    }
 }
