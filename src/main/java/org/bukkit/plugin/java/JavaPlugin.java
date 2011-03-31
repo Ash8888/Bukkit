@@ -159,8 +159,6 @@ public abstract class JavaPlugin implements Plugin {
             
             config.setDefaultServer(false);
             config.setRegister(false);
-            config.setDdlGenerate(true);
-            config.setDdlRun(true);
             config.setClasses(getDatabaseClasses());
             config.setName(description.getName());
             server.configureDbConfig(config);
