@@ -1,13 +1,14 @@
 
 package org.bukkit;
 
+import java.io.Serializable;
 import org.bukkit.block.Block;
 import org.bukkit.util.Vector;
 
 /**
  * Represents a 3-dimensional position in a world
  */
-public class Location implements Cloneable {
+public class Location implements Cloneable, Serializable {
     private World world;
     private double x;
     private double y;
