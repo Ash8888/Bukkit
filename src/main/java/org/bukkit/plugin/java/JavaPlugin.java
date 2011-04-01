@@ -155,22 +155,24 @@ public abstract class JavaPlugin implements Plugin {
             this.config = new Configuration(new File(dataFolder, "config.yml"));
             this.config.load();
 
-            ServerConfig config = new ServerConfig();
-            
-            config.setDefaultServer(false);
-            config.setRegister(false);
-            config.setClasses(getDatabaseClasses());
-            config.setName(description.getName());
-            server.configureDbConfig(config);
+            if (description.isDatabaseEnabled()) {
+                ServerConfig db = new ServerConfig();
 
-            DataSourceConfig ds = config.getDataSourceConfig();
-            ds.setUrl(replaceDatabaseString(ds.getUrl()));
-            getDataFolder().mkdirs();
+                db.setDefaultServer(false);
+                db.setRegister(false);
+                db.setClasses(getDatabaseClasses());
+                db.setName(description.getName());
+                server.configureDbConfig(db);
 
-            ClassLoader previous = Thread.currentThread().getContextClassLoader();
-            Thread.currentThread().setContextClassLoader(classLoader);
-            ebean = EbeanServerFactory.create(config);
-            Thread.currentThread().setContextClassLoader(previous);
+                DataSourceConfig ds = db.getDataSourceConfig();
+                ds.setUrl(replaceDatabaseString(ds.getUrl()));
+                getDataFolder().mkdirs();
+
+                ClassLoader previous = Thread.currentThread().getContextClassLoader();
+                Thread.currentThread().setContextClassLoader(classLoader);
+                ebean = EbeanServerFactory.create(db);
+                Thread.currentThread().setContextClassLoader(previous);
+            }
         }
     }
 
